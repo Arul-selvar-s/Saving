@@ -1,0 +1,7 @@
+<resources>
+    <color name="soft_peach">#FFF3E9</color>
+    <color name="petal_pink">#F8BBD0</color>
+    <color name="flower_center">#E53935</color>
+    <color name="savings_green">#2E7D32</color>
+    <color name="expense_red">#C62828</color>
+</resources>
