@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.saving.app.data.model.CategoryEntity
 import com.saving.app.data.model.FilterState
+import com.saving.app.data.model.MonthGroup
 import com.saving.app.data.model.TransactionEntity
 import com.saving.app.data.model.TransactionType
 import com.saving.app.data.repository.SavingRepository
@@ -15,7 +16,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 class MainViewModel(private val repository: SavingRepository) : ViewModel() {
 
@@ -41,6 +44,11 @@ class MainViewModel(private val repository: SavingRepository) : ViewModel() {
         .map { list -> list.filter { it.type == TransactionType.EXPENSE.name }.sumOf { it.amount } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
+    // Balance = Saving - Expense. Negative when expenses outweigh savings for the period.
+    val totalBalance: StateFlow<Double> = combine(totalSavings, totalExpenses) { saving, expense ->
+        saving - expense
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
     private val _filterState = MutableStateFlow(FilterState())
     val filterState: StateFlow<FilterState> = _filterState
 
@@ -48,6 +56,35 @@ class MainViewModel(private val repository: SavingRepository) : ViewModel() {
         combine(transactions, _filterState) { list, filter ->
             list.filter { transaction -> matchesFilter(transaction, filter) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Transactions grouped by month (most recent month first), each with its own saving/balance totals
+    val groupedTransactions: StateFlow<List<MonthGroup>> = filteredTransactions.map { list ->
+        list.groupBy { tx ->
+            val cal = Calendar.getInstance().apply { timeInMillis = tx.dateTimeMillis }
+            cal.get(Calendar.YEAR) to cal.get(Calendar.MONTH)
+        }.map { (key, txsInMonth) ->
+            val (year, month) = key
+            val monthSaving = txsInMonth.filter { it.type == TransactionType.SAVING.name }.sumOf { it.amount }
+            val monthExpense = txsInMonth.filter { it.type == TransactionType.EXPENSE.name }.sumOf { it.amount }
+            MonthGroup(
+                year = year,
+                month = month,
+                label = monthLabel(year, month),
+                transactions = txsInMonth,
+                monthSaving = monthSaving,
+                monthBalance = monthSaving - monthExpense
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun monthLabel(year: Int, month: Int): String {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        return SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+    }
 
     private fun matchesFilter(transaction: TransactionEntity, filter: FilterState): Boolean {
         if (filter.type != null && transaction.type != filter.type.name) return false
