@@ -3,35 +3,32 @@ package com.saving.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
+import com.saving.app.data.db.AppDatabase
+import com.saving.app.data.repository.SavingRepository
+import com.saving.app.ui.screens.HomeScreen
 import com.saving.app.ui.theme.SavingTheme
+import com.saving.app.viewmodel.MainViewModel
+import com.saving.app.viewmodel.MainViewModelFactory
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var viewModel: MainViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val database = AppDatabase.getInstance(applicationContext)
+        val repository = SavingRepository(database)
+        viewModel = ViewModelProvider(
+            this,
+            MainViewModelFactory(repository)
+        )[MainViewModel::class.java]
+
         setContent {
             SavingTheme {
-                PlaceholderScreen()
+                HomeScreen(viewModel = viewModel)
             }
-        }
-    }
-}
-
-@Composable
-fun PlaceholderScreen() {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = "💮 Saving\nProject skeleton is working!",
-                style = MaterialTheme.typography.headlineMedium
-            )
         }
     }
 }
