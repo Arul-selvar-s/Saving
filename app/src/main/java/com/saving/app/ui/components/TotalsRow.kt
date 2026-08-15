@@ -1,5 +1,6 @@
 package com.saving.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,14 +18,16 @@ import com.saving.app.ui.theme.TextMuted
 import java.util.Locale
 
 @Composable
-fun TotalsRow(totalSavings: Double, totalExpenses: Double) {
+fun TotalsRow(
+    totalSavings: Double,
+    totalBalance: Double,
+    onSavingsClick: () -> Unit
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
+        Column(modifier = Modifier.clickable { onSavingsClick() }) {
             Text(text = "Total Savings", style = MaterialTheme.typography.labelSmall, color = TextMuted)
             Text(
                 text = "₹" + String.format(Locale.getDefault(), "%.2f", totalSavings),
@@ -33,11 +36,11 @@ fun TotalsRow(totalSavings: Double, totalExpenses: Double) {
             )
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(text = "Total Expenses", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text(text = "Balance", style = MaterialTheme.typography.labelSmall, color = TextMuted)
             Text(
-                text = "₹" + String.format(Locale.getDefault(), "%.2f", totalExpenses),
+                text = "₹" + String.format(Locale.getDefault(), "%.2f", totalBalance),
                 style = MaterialTheme.typography.headlineMedium,
-                color = ExpenseRed
+                color = if (totalBalance < 0) ExpenseRed else SavingsGreen
             )
         }
     }
