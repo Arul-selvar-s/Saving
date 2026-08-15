@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import com.saving.app.ui.components.AddTransactionSheet
 import com.saving.app.ui.components.FilterSheet
 import com.saving.app.ui.components.ManageCategoriesSheet
+import com.saving.app.ui.components.MonthHeader
+import com.saving.app.ui.components.SavingSummaryDialog
 import com.saving.app.ui.components.TotalsRow
 import com.saving.app.ui.components.TransactionRow
 import com.saving.app.ui.theme.TextMuted
@@ -44,15 +46,16 @@ import com.saving.app.viewmodel.MainViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
-    val transactions by viewModel.filteredTransactions.collectAsState()
+    val groupedTransactions by viewModel.groupedTransactions.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val totalSavings by viewModel.totalSavings.collectAsState()
-    val totalExpenses by viewModel.totalExpenses.collectAsState()
+    val totalBalance by viewModel.totalBalance.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showManageCategories by remember { mutableStateOf(false) }
+    var showSavingSummary by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -76,31 +79,25 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            TotalsRow(totalSavings = totalSavings, totalExpenses = totalExpenses)
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            TotalsRow(
+                totalSavings = totalSavings,
+                totalBalance = totalBalance,
+                onSavingsClick = { showSavingSummary = true }
+            )
 
             if (filterState.isActive) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Filters applied",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
+                    Text(text = "Filters applied", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                     TextButton(onClick = { viewModel.clearFilter() }) { Text("Clear") }
                 }
             }
 
-            if (transactions.isEmpty()) {
+            if (groupedTransactions.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (filterState.isActive)
@@ -113,8 +110,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(transactions, key = { it.id }) { transaction ->
-                        TransactionRow(transaction)
+                    groupedTransactions.forEach { group ->
+                        item(key = "header-${group.year}-${group.month}") {
+                            MonthHeader(group)
+                        }
+                        items(group.transactions, key = { it.id }) { transaction ->
+                            TransactionRow(transaction)
+                        }
                     }
                 }
             }
@@ -152,6 +154,14 @@ fun HomeScreen(viewModel: MainViewModel) {
             onAdd = { name -> viewModel.addCategory(name) },
             onUpdate = { category -> viewModel.updateCategory(category) },
             onDelete = { category -> viewModel.deleteCategory(category) }
+        )
+    }
+
+    if (showSavingSummary) {
+        SavingSummaryDialog(
+            totalSaving = totalSavings,
+            totalBalance = totalBalance,
+            onDismiss = { showSavingSummary = false }
         )
     }
 }
