@@ -24,11 +24,17 @@ fun TotalsRow(
     onSavingsClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.clickable { onSavingsClick() }) {
-            Text(text = "Total Savings", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text(
+                text = "Total Savings",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextMuted
+            )
             Text(
                 text = "₹" + String.format(Locale.getDefault(), "%.2f", totalSavings),
                 style = MaterialTheme.typography.headlineMedium,
@@ -36,7 +42,11 @@ fun TotalsRow(
             )
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(text = "Balance", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text(
+                text = "Balance",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextMuted
+            )
             Text(
                 text = "₹" + String.format(Locale.getDefault(), "%.2f", totalBalance),
                 style = MaterialTheme.typography.headlineMedium,

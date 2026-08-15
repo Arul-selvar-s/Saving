@@ -24,9 +24,14 @@ fun MonthHeader(group: MonthGroup) {
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {
-            Text(text = group.label, style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = group.label,
+                style = MaterialTheme.typography.titleLarge
+            )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(

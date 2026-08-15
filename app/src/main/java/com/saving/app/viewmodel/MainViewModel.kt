@@ -131,6 +131,7 @@ class MainViewModel(private val repository: SavingRepository) : ViewModel() {
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch { repository.deleteTransaction(transaction) }
     }
+
     fun updateTransaction(transaction: TransactionEntity) {
         viewModelScope.launch { repository.updateTransaction(transaction) }
     }

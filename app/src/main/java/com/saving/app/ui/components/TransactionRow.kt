@@ -25,7 +25,7 @@ import java.util.Locale
 
 @Composable
 fun TransactionRow(transaction: TransactionEntity, onClick: () -> Unit) {
-    val formatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
+    val formatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val isSaving = transaction.type == TransactionType.SAVING.name
 
     Column {

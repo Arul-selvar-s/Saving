@@ -30,5 +30,9 @@ fun SavingTheme(
     content: @Composable () -> Unit
 ) {
     val colors = if (darkTheme) DarkColors else LightColors
-    MaterialTheme(colorScheme = colors, typography = Typography, content = content)
+    MaterialTheme(
+        colorScheme = colors,
+        typography = Typography,
+        content = content
+    )
 }

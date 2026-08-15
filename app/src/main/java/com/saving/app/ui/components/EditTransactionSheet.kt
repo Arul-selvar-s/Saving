@@ -1,7 +1,6 @@
 package com.saving.app.ui.components
 
 import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,7 +72,7 @@ fun EditTransactionSheet(
     var showNewCategoryDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    val formatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
+    val formatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -106,18 +105,8 @@ fun EditTransactionSheet(
                     DatePickerDialog(
                         context,
                         { _, year, month, day ->
-                            cal.set(year, month, day)
-                            TimePickerDialog(
-                                context,
-                                { _, hour, minute ->
-                                    cal.set(Calendar.HOUR_OF_DAY, hour)
-                                    cal.set(Calendar.MINUTE, minute)
-                                    dateTimeMillis = cal.timeInMillis
-                                },
-                                cal.get(Calendar.HOUR_OF_DAY),
-                                cal.get(Calendar.MINUTE),
-                                false
-                            ).show()
+                            cal.set(year, month, day, 0, 0, 0)
+                            dateTimeMillis = cal.timeInMillis
                         },
                         cal.get(Calendar.YEAR),
                         cal.get(Calendar.MONTH),
@@ -180,7 +169,7 @@ fun EditTransactionSheet(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Note") },
+                    label = { Text("Note (optional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -199,7 +188,8 @@ fun EditTransactionSheet(
                     Button(onClick = {
                         val amount = amountText.toDoubleOrNull() ?: 0.0
                         val finalNote = if (type == TransactionType.EXPENSE) selectedCategory else note
-                        if (amount > 0.0 && finalNote.isNotBlank()) {
+                        val isValid = amount > 0.0 && (type == TransactionType.SAVING || finalNote.isNotBlank())
+                        if (isValid) {
                             onSave(
                                 transaction.copy(
                                     type = type.name,

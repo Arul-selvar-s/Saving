@@ -82,7 +82,11 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             TotalsRow(
                 totalSavings = totalSavings,
                 totalBalance = totalBalance,
@@ -91,11 +95,17 @@ fun HomeScreen(viewModel: MainViewModel) {
 
             if (filterState.isActive) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "Filters applied", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                    Text(
+                        text = "Filters applied",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted
+                    )
                     TextButton(onClick = { viewModel.clearFilter() }) { Text("Clear") }
                 }
             }

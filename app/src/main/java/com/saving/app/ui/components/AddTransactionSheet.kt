@@ -1,7 +1,6 @@
 package com.saving.app.ui.components
 
 import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,7 +60,7 @@ fun AddTransactionSheet(
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var showNewCategoryDialog by remember { mutableStateOf(false) }
 
-    val formatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
+    val formatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -73,6 +72,7 @@ fun AddTransactionSheet(
             Text("Add Transaction", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(16.dp))
 
+            // Saving / Expense toggle
             Row {
                 FilterChip(
                     selected = type == TransactionType.EXPENSE,
@@ -88,24 +88,15 @@ fun AddTransactionSheet(
             }
             Spacer(Modifier.height(16.dp))
 
+            // Date — auto-filled with today, editable via native date picker
             OutlinedButton(
                 onClick = {
                     val cal = Calendar.getInstance().apply { timeInMillis = dateTimeMillis }
                     DatePickerDialog(
                         context,
                         { _, year, month, day ->
-                            cal.set(year, month, day)
-                            TimePickerDialog(
-                                context,
-                                { _, hour, minute ->
-                                    cal.set(Calendar.HOUR_OF_DAY, hour)
-                                    cal.set(Calendar.MINUTE, minute)
-                                    dateTimeMillis = cal.timeInMillis
-                                },
-                                cal.get(Calendar.HOUR_OF_DAY),
-                                cal.get(Calendar.MINUTE),
-                                false
-                            ).show()
+                            cal.set(year, month, day, 0, 0, 0)
+                            dateTimeMillis = cal.timeInMillis
                         },
                         cal.get(Calendar.YEAR),
                         cal.get(Calendar.MONTH),
@@ -118,6 +109,7 @@ fun AddTransactionSheet(
             }
             Spacer(Modifier.height(16.dp))
 
+            // Amount
             OutlinedTextField(
                 value = amountText,
                 onValueChange = { input -> amountText = input.filter { it.isDigit() || it == '.' } },
@@ -127,6 +119,7 @@ fun AddTransactionSheet(
             )
             Spacer(Modifier.height(16.dp))
 
+            // Reason: category picker for Expense, free-text note for Saving
             if (type == TransactionType.EXPENSE) {
                 ExposedDropdownMenuBox(
                     expanded = categoryMenuExpanded,
@@ -168,7 +161,7 @@ fun AddTransactionSheet(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Note") },
+                    label = { Text("Note (optional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -180,7 +173,8 @@ fun AddTransactionSheet(
                 Button(onClick = {
                     val amount = amountText.toDoubleOrNull() ?: 0.0
                     val finalNote = if (type == TransactionType.EXPENSE) selectedCategory else note
-                    if (amount > 0.0 && finalNote.isNotBlank()) {
+                    val isValid = amount > 0.0 && (type == TransactionType.SAVING || finalNote.isNotBlank())
+                    if (isValid) {
                         onSave(type, amount, finalNote, dateTimeMillis)
                     }
                 }) { Text("Save") }

@@ -16,7 +16,23 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Committed on purpose: keeps the debug SHA-1 fingerprint identical across every
+            // local build AND every GitHub Actions run. Without this, each CI build would get
+            // a brand-new throwaway debug key, and Google Sign-In (which is matched to a
+            // specific SHA-1 in Google Cloud Console) would break on every single rebuild.
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
         }
@@ -65,6 +81,13 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // Google Sign-In (Drive backup, Step 4)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    // Lightweight REST calls to the Drive v3 API — deliberately avoiding the heavier
+    // google-api-client / google-api-services-drive libraries, which are a common source
+    // of "duplicate class" build conflicts on Android.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
