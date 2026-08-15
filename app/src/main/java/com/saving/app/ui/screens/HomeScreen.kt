@@ -33,7 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.saving.app.data.model.TransactionEntity
 import com.saving.app.ui.components.AddTransactionSheet
+import com.saving.app.ui.components.EditTransactionSheet
 import com.saving.app.ui.components.FilterSheet
 import com.saving.app.ui.components.ManageCategoriesSheet
 import com.saving.app.ui.components.MonthHeader
@@ -56,6 +58,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var showFilterSheet by remember { mutableStateOf(false) }
     var showManageCategories by remember { mutableStateOf(false) }
     var showSavingSummary by remember { mutableStateOf(false) }
+    var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -115,7 +118,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                             MonthHeader(group)
                         }
                         items(group.transactions, key = { it.id }) { transaction ->
-                            TransactionRow(transaction)
+                            TransactionRow(transaction, onClick = { editingTransaction = transaction })
                         }
                     }
                 }
@@ -162,6 +165,23 @@ fun HomeScreen(viewModel: MainViewModel) {
             totalSaving = totalSavings,
             totalBalance = totalBalance,
             onDismiss = { showSavingSummary = false }
+        )
+    }
+
+    editingTransaction?.let { transaction ->
+        EditTransactionSheet(
+            transaction = transaction,
+            categories = categories,
+            onDismiss = { editingTransaction = null },
+            onSave = { updated ->
+                viewModel.updateTransaction(updated)
+                editingTransaction = null
+            },
+            onDelete = { toDelete ->
+                viewModel.deleteTransaction(toDelete)
+                editingTransaction = null
+            },
+            onAddCategory = { name -> viewModel.addCategory(name) }
         )
     }
 }
