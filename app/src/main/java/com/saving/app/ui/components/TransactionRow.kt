@@ -1,5 +1,6 @@
 package com.saving.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,7 +24,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TransactionRow(transaction: TransactionEntity) {
+fun TransactionRow(transaction: TransactionEntity, onClick: () -> Unit) {
     val formatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
     val isSaving = transaction.type == TransactionType.SAVING.name
 
@@ -31,6 +32,7 @@ fun TransactionRow(transaction: TransactionEntity) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable { onClick() }
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
