@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
@@ -114,7 +114,7 @@ fun FilterSheet(
                         .menuAnchor()
                         .fillMaxWidth()
                 )
-                ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = categoryMenuExpanded,
                     onDismissRequest = { categoryMenuExpanded = false }
                 ) {
@@ -175,7 +175,7 @@ fun FilterSheet(
                             .menuAnchor()
                             .fillMaxWidth()
                     )
-                    ExposedDropdownMenu(
+                    DropdownMenu(
                         expanded = monthMenuExpanded,
                         onDismissRequest = { monthMenuExpanded = false }
                     ) {
@@ -200,7 +200,7 @@ fun FilterSheet(
                             .menuAnchor()
                             .fillMaxWidth()
                     )
-                    ExposedDropdownMenu(
+                    DropdownMenu(
                         expanded = yearMenuExpanded,
                         onDismissRequest = { yearMenuExpanded = false }
                     ) {
