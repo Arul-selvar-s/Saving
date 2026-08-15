@@ -3,12 +3,14 @@ package com.saving.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.saving.app.data.model.CategoryEntity
 import com.saving.app.data.model.FilterState
 import com.saving.app.data.model.MonthGroup
 import com.saving.app.data.model.TransactionEntity
 import com.saving.app.data.model.TransactionType
 import com.saving.app.data.repository.SavingRepository
+import com.saving.app.data.sync.SyncManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,8 +21,12 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
-class MainViewModel(private val repository: SavingRepository) : ViewModel() {
+class MainViewModel(
+    private val repository: SavingRepository,
+    private val syncManager: SyncManager
+) : ViewModel() {
 
     val transactions: StateFlow<List<TransactionEntity>> =
         repository.transactions.stateIn(
@@ -115,6 +121,36 @@ class MainViewModel(private val repository: SavingRepository) : ViewModel() {
         _filterState.value = FilterState()
     }
 
+    // ---- Cloud sync state ----
+
+    private val _signedInAccount = MutableStateFlow<GoogleSignInAccount?>(null)
+    val signedInAccount: StateFlow<GoogleSignInAccount?> = _signedInAccount
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing
+
+    fun setSignedInAccount(account: GoogleSignInAccount?) {
+        _signedInAccount.value = account
+        if (account != null) syncNow()
+    }
+
+    fun syncNow() {
+        if (_signedInAccount.value == null) return
+        viewModelScope.launch {
+            _isSyncing.value = true
+            syncManager.pullAndMerge()
+            _isSyncing.value = false
+        }
+    }
+
+    private fun pushIfSignedIn() {
+        if (_signedInAccount.value != null) {
+            viewModelScope.launch { syncManager.pushSnapshot() }
+        }
+    }
+
+    // ---- Transactions / Categories (now sync-aware) ----
+
     fun addTransaction(type: TransactionType, amount: Double, note: String, dateTimeMillis: Long) {
         viewModelScope.launch {
             repository.addTransaction(
@@ -122,36 +158,61 @@ class MainViewModel(private val repository: SavingRepository) : ViewModel() {
                     type = type.name,
                     amount = amount,
                     note = note,
-                    dateTimeMillis = dateTimeMillis
+                    dateTimeMillis = dateTimeMillis,
+                    cloudId = UUID.randomUUID().toString()
                 )
             )
+            pushIfSignedIn()
         }
     }
 
     fun deleteTransaction(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.deleteTransaction(transaction) }
+        viewModelScope.launch {
+            repository.deleteTransaction(transaction)
+            syncManager.recordTransactionDeleted(transaction.cloudId)
+            pushIfSignedIn()
+        }
     }
 
     fun updateTransaction(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.updateTransaction(transaction) }
+        viewModelScope.launch {
+            val withCloudId = if (transaction.cloudId == null) {
+                transaction.copy(cloudId = UUID.randomUUID().toString())
+            } else transaction
+            repository.updateTransaction(withCloudId)
+            pushIfSignedIn()
+        }
     }
 
     fun addCategory(name: String) {
-        viewModelScope.launch { repository.addCategory(name) }
+        viewModelScope.launch {
+            repository.addCategory(name)
+            pushIfSignedIn()
+        }
     }
 
     fun updateCategory(category: CategoryEntity) {
-        viewModelScope.launch { repository.updateCategory(category) }
+        viewModelScope.launch {
+            repository.updateCategory(category)
+            pushIfSignedIn()
+        }
     }
 
     fun deleteCategory(category: CategoryEntity) {
-        viewModelScope.launch { repository.deleteCategory(category) }
+        viewModelScope.launch {
+            repository.deleteCategory(category)
+            syncManager.recordCategoryDeleted(category.name)
+            pushIfSignedIn()
+        }
     }
 }
 
-class MainViewModelFactory(private val repository: SavingRepository) : ViewModelProvider.Factory {
+class MainViewModelFactory(
+    private val repository: SavingRepository,
+    private val syncManager: SyncManager
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return MainViewModel(repository) as T
+        return MainViewModel(repository, syncManager) as T
     }
 }

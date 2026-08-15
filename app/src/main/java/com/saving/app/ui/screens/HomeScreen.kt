@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.saving.app.data.model.TransactionEntity
+import com.saving.app.ui.components.AccountDialog
 import com.saving.app.ui.components.AddTransactionSheet
 import com.saving.app.ui.components.EditTransactionSheet
 import com.saving.app.ui.components.FilterSheet
@@ -47,17 +49,24 @@ import com.saving.app.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: MainViewModel) {
+fun HomeScreen(
+    viewModel: MainViewModel,
+    onSignInClick: () -> Unit,
+    onSignOutClick: () -> Unit
+) {
     val groupedTransactions by viewModel.groupedTransactions.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val totalSavings by viewModel.totalSavings.collectAsState()
     val totalBalance by viewModel.totalBalance.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
+    val signedInAccount by viewModel.signedInAccount.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showManageCategories by remember { mutableStateOf(false) }
     var showSavingSummary by remember { mutableStateOf(false) }
+    var showAccountDialog by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
     Scaffold(
@@ -65,6 +74,11 @@ fun HomeScreen(viewModel: MainViewModel) {
             TopAppBar(
                 title = { Text("💮 Saving") },
                 actions = {
+                    IconButton(onClick = { showAccountDialog = true }) {
+                        BadgedBox(badge = { if (signedInAccount == null) Badge() }) {
+                            Icon(Icons.Default.Cloud, contentDescription = "Cloud backup")
+                        }
+                    }
                     IconButton(onClick = { showManageCategories = true }) {
                         Icon(Icons.Default.Category, contentDescription = "Manage categories")
                     }
@@ -175,6 +189,23 @@ fun HomeScreen(viewModel: MainViewModel) {
             totalSaving = totalSavings,
             totalBalance = totalBalance,
             onDismiss = { showSavingSummary = false }
+        )
+    }
+
+    if (showAccountDialog) {
+        AccountDialog(
+            accountEmail = signedInAccount?.email,
+            isSyncing = isSyncing,
+            onSignIn = {
+                onSignInClick()
+                showAccountDialog = false
+            },
+            onSignOut = {
+                onSignOutClick()
+                showAccountDialog = false
+            },
+            onSyncNow = { viewModel.syncNow() },
+            onDismiss = { showAccountDialog = false }
         )
     }
 
