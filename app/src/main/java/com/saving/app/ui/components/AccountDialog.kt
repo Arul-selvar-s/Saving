@@ -10,12 +10,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.saving.app.ui.theme.ExpenseRed
 import com.saving.app.ui.theme.TextMuted
 
 @Composable
 fun AccountDialog(
     accountEmail: String?,
     isSyncing: Boolean,
+    errorMessage: String?,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
@@ -38,6 +40,15 @@ fun AccountDialog(
                     Text(
                         text = "Sign in with Google to back up your data to Drive and keep it in sync across devices.",
                         style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                if (errorMessage != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Sync error: $errorMessage",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ExpenseRed
                     )
                 }
             }

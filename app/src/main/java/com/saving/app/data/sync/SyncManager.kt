@@ -1,12 +1,23 @@
 package com.saving.app.data.sync
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentSender
+import com.saving.app.auth.DriveAccessResult
 import com.saving.app.auth.DriveAuth
 import com.saving.app.data.repository.SavingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.util.UUID
+
+/** Outcome of a sync attempt, surfaced all the way up to the UI — previously these failures
+ *  were silently swallowed, which made real problems (like the device-account issue) invisible. */
+sealed class SyncOutcome {
+    object Success : SyncOutcome()
+    data class NeedsConsent(val intentSender: IntentSender) : SyncOutcome()
+    data class Error(val message: String) : SyncOutcome()
+}
 
 class SyncManager(
     private val context: Context,
@@ -23,19 +34,29 @@ class SyncManager(
         tombstoneStore.addDeletedId("cat:$name")
     }
 
-    private suspend fun currentAccessToken(): String? {
-        val account = DriveAuth.getLastSignedInAccount(context) ?: return null
-        return DriveAuth.getAccessToken(context, account)
+    fun handleAuthorizationResolution(data: Intent?): DriveAccessResult =
+        DriveAuth.finishAuthorization(context, data)
+
+    suspend fun pushSnapshot(): SyncOutcome = withContext(Dispatchers.IO) {
+        when (val access = DriveAuth.requestDriveAccess(context)) {
+            is DriveAccessResult.Authorized -> uploadSnapshot(access.accessToken)
+            is DriveAccessResult.NeedsConsent -> SyncOutcome.NeedsConsent(access.intentSender)
+            is DriveAccessResult.Failed -> SyncOutcome.Error(access.message)
+        }
     }
 
-    /** Uploads the full current local state (best-effort, silent on failure — a background
-     *  sync shouldn't interrupt the person adding a transaction). Call this after every
-     *  add/edit/delete so changes reach the cloud immediately, per the app's primary rule. */
-    suspend fun pushSnapshot() = withContext(Dispatchers.IO) {
-        val token = currentAccessToken() ?: return@withContext
-        try {
-            // Backfill a cloudId for any older local transaction that predates sync being enabled,
-            // so it participates correctly in merging instead of being invisible to it.
+    suspend fun pullAndMerge(): SyncOutcome = withContext(Dispatchers.IO) {
+        when (val access = DriveAuth.requestDriveAccess(context)) {
+            is DriveAccessResult.Authorized -> pullAndMergeWithToken(access.accessToken)
+            is DriveAccessResult.NeedsConsent -> SyncOutcome.NeedsConsent(access.intentSender)
+            is DriveAccessResult.Failed -> SyncOutcome.Error(access.message)
+        }
+    }
+
+    private suspend fun uploadSnapshot(accessToken: String): SyncOutcome {
+        return try {
+            // Backfill a cloudId for any older local transaction that predates sync being
+            // enabled, so it participates correctly in merging instead of being invisible to it.
             val transactions = repository.transactions.first().map { tx ->
                 if (tx.cloudId == null) {
                     val withCloudId = tx.copy(cloudId = UUID.randomUUID().toString())
@@ -45,74 +66,67 @@ class SyncManager(
             }
             val categories = repository.categories.first()
             val json = BackupSerializer.serialize(transactions, categories, tombstoneStore.getDeletedIds())
-            DriveApiClient(token).uploadOrUpdate(json)
+            DriveApiClient(accessToken).uploadOrUpdate(json)
+            SyncOutcome.Success
         } catch (e: Exception) {
-            // Best-effort background sync — a failed push here doesn't lose local data,
-            // it just gets retried on the next save or manual "Sync Now".
+            SyncOutcome.Error(e.message ?: "Upload to Drive failed")
         }
     }
 
-    /** Downloads the latest snapshot from Drive, merges it into the local database
-     *  (newer edits win, remote deletions are applied locally), then re-uploads the
-     *  merged result so both devices converge. */
-    suspend fun pullAndMerge() = withContext(Dispatchers.IO) {
-        val token = currentAccessToken() ?: return@withContext
-        val remoteJson = try {
-            DriveApiClient(token).download()
-        } catch (e: Exception) {
-            null
-        } ?: return@withContext
+    private suspend fun pullAndMergeWithToken(accessToken: String): SyncOutcome {
+        return try {
+            val remoteJson = DriveApiClient(accessToken).download()
+                ?: return uploadSnapshot(accessToken) // nothing backed up yet — push our current state
 
-        val parsed = try {
-            BackupSerializer.deserialize(remoteJson)
-        } catch (e: Exception) {
-            return@withContext
-        }
+            val parsed = BackupSerializer.deserialize(remoteJson)
 
-        tombstoneStore.mergeDeletedIds(parsed.deletedIds)
-        val allDeleted = tombstoneStore.getDeletedIds()
+            tombstoneStore.mergeDeletedIds(parsed.deletedIds)
+            val allDeleted = tombstoneStore.getDeletedIds()
 
-        // Merge categories: add remote-only ones, remove any that are tombstoned
-        val localCategories = repository.categories.first()
-        val localCategoryNames = localCategories.map { it.name }.toSet()
-        parsed.categoryNames.forEach { name ->
-            if ("cat:$name" !in allDeleted && name !in localCategoryNames) {
-                repository.addCategory(name)
+            // Merge categories: add remote-only ones, remove any that are tombstoned
+            val localCategories = repository.categories.first()
+            val localCategoryNames = localCategories.map { it.name }.toSet()
+            parsed.categoryNames.forEach { name ->
+                if ("cat:$name" !in allDeleted && name !in localCategoryNames) {
+                    repository.addCategory(name)
+                }
             }
-        }
-        localCategories.forEach { category ->
-            if ("cat:${category.name}" in allDeleted) {
-                repository.deleteCategory(category)
+            localCategories.forEach { category ->
+                if ("cat:${category.name}" in allDeleted) {
+                    repository.deleteCategory(category)
+                }
             }
-        }
 
-        // Merge transactions: add remote-only, update if remote is newer, skip tombstoned
-        val localTransactions = repository.transactions.first()
-        val localByCloudId = localTransactions.filter { it.cloudId != null }.associateBy { it.cloudId }
-        parsed.transactions.forEach { remoteTx ->
-            if (remoteTx.cloudId == null || "txn:${remoteTx.cloudId}" in allDeleted) return@forEach
-            val local = localByCloudId[remoteTx.cloudId]
-            if (local == null) {
-                repository.addTransaction(remoteTx)
-            } else if (remoteTx.updatedAtMillis > local.updatedAtMillis) {
-                repository.updateTransaction(
-                    local.copy(
-                        type = remoteTx.type,
-                        amount = remoteTx.amount,
-                        note = remoteTx.note,
-                        dateTimeMillis = remoteTx.dateTimeMillis,
-                        updatedAtMillis = remoteTx.updatedAtMillis
+            // Merge transactions: add remote-only, update if remote is newer, skip tombstoned
+            val localTransactions = repository.transactions.first()
+            val localByCloudId = localTransactions.filter { it.cloudId != null }.associateBy { it.cloudId }
+            parsed.transactions.forEach { remoteTx ->
+                if (remoteTx.cloudId == null || "txn:${remoteTx.cloudId}" in allDeleted) return@forEach
+                val local = localByCloudId[remoteTx.cloudId]
+                if (local == null) {
+                    repository.addTransaction(remoteTx)
+                } else if (remoteTx.updatedAtMillis > local.updatedAtMillis) {
+                    repository.updateTransaction(
+                        local.copy(
+                            type = remoteTx.type,
+                            amount = remoteTx.amount,
+                            note = remoteTx.note,
+                            dateTimeMillis = remoteTx.dateTimeMillis,
+                            updatedAtMillis = remoteTx.updatedAtMillis
+                        )
                     )
-                )
+                }
             }
-        }
-        localTransactions.forEach { tx ->
-            if (tx.cloudId != null && "txn:${tx.cloudId}" in allDeleted) {
-                repository.deleteTransaction(tx)
+            localTransactions.forEach { tx ->
+                if (tx.cloudId != null && "txn:${tx.cloudId}" in allDeleted) {
+                    repository.deleteTransaction(tx)
+                }
             }
-        }
 
-        // Push the merged result back so Drive reflects the converged state too
-        pushSnapshot()
+            // Push the merged result back so Drive reflects the converged state too
+            uploadSnapshot(accessToken)
+        } catch (e: Exception) {
+            SyncOutcome.Error(e.message ?: "Sync failed")
+        }
     }
 }

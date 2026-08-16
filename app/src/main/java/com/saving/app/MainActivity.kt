@@ -3,7 +3,11 @@ package com.saving.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
@@ -32,6 +36,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Handles the one-time "Allow Saving to access Drive" consent dialog, shown the first
+    // time this device+account combo syncs (or after access is revoked).
+    private val authorizationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        viewModel.onAuthorizationResult(result.data)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -52,6 +64,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SavingTheme {
+                val authorizationNeeded by viewModel.authorizationNeeded.collectAsState()
+                LaunchedEffect(authorizationNeeded) {
+                    authorizationNeeded?.let { intentSender ->
+                        authorizationLauncher.launch(
+                            IntentSenderRequest.Builder(intentSender).build()
+                        )
+                    }
+                }
+
                 HomeScreen(
                     viewModel = viewModel,
                     onSignInClick = {

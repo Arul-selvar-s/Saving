@@ -1,9 +1,12 @@
 package com.saving.app.viewmodel
 
+import android.content.Intent
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.saving.app.auth.DriveAccessResult
 import com.saving.app.data.model.CategoryEntity
 import com.saving.app.data.model.FilterState
 import com.saving.app.data.model.MonthGroup
@@ -11,6 +14,7 @@ import com.saving.app.data.model.TransactionEntity
 import com.saving.app.data.model.TransactionType
 import com.saving.app.data.repository.SavingRepository
 import com.saving.app.data.sync.SyncManager
+import com.saving.app.data.sync.SyncOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -129,8 +133,17 @@ class MainViewModel(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
 
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncError: StateFlow<String?> = _syncError
+
+    // Non-null when Google needs the user to approve Drive access via a system dialog.
+    // MainActivity observes this and launches the resolution intent.
+    private val _authorizationNeeded = MutableStateFlow<IntentSender?>(null)
+    val authorizationNeeded: StateFlow<IntentSender?> = _authorizationNeeded
+
     fun setSignedInAccount(account: GoogleSignInAccount?) {
         _signedInAccount.value = account
+        _syncError.value = null
         if (account != null) syncNow()
     }
 
@@ -138,14 +151,34 @@ class MainViewModel(
         if (_signedInAccount.value == null) return
         viewModelScope.launch {
             _isSyncing.value = true
-            syncManager.pullAndMerge()
+            handleOutcome(syncManager.pullAndMerge())
             _isSyncing.value = false
+        }
+    }
+
+    /** Called by MainActivity after the user resolves (or cancels) a Drive consent dialog. */
+    fun onAuthorizationResult(data: Intent?) {
+        _authorizationNeeded.value = null
+        viewModelScope.launch {
+            when (val result = syncManager.handleAuthorizationResolution(data)) {
+                is DriveAccessResult.Authorized -> syncNow()
+                is DriveAccessResult.NeedsConsent -> _authorizationNeeded.value = result.intentSender
+                is DriveAccessResult.Failed -> _syncError.value = result.message
+            }
+        }
+    }
+
+    private fun handleOutcome(outcome: SyncOutcome) {
+        when (outcome) {
+            is SyncOutcome.Success -> _syncError.value = null
+            is SyncOutcome.NeedsConsent -> _authorizationNeeded.value = outcome.intentSender
+            is SyncOutcome.Error -> _syncError.value = outcome.message
         }
     }
 
     private fun pushIfSignedIn() {
         if (_signedInAccount.value != null) {
-            viewModelScope.launch { syncManager.pushSnapshot() }
+            viewModelScope.launch { handleOutcome(syncManager.pushSnapshot()) }
         }
     }
 
