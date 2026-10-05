@@ -41,6 +41,7 @@ import com.saving.app.ui.components.EditTransactionSheet
 import com.saving.app.ui.components.FilterSheet
 import com.saving.app.ui.components.ManageCategoriesSheet
 import com.saving.app.ui.components.MonthHeader
+import com.saving.app.ui.components.OverallFilterSummary
 import com.saving.app.ui.components.SavingSummaryDialog
 import com.saving.app.ui.components.TotalsRow
 import com.saving.app.ui.components.TransactionRow
@@ -59,6 +60,7 @@ fun HomeScreen(
     val totalSavings by viewModel.totalSavings.collectAsState()
     val totalBalance by viewModel.totalBalance.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
+    val filteredTotals by viewModel.filteredTotals.collectAsState()
     val signedInAccount by viewModel.signedInAccount.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncError by viewModel.syncError.collectAsState()
@@ -123,6 +125,7 @@ fun HomeScreen(
                     )
                     TextButton(onClick = { viewModel.clearFilter() }) { Text("Clear") }
                 }
+                OverallFilterSummary(filteredTotals)
             }
 
             if (groupedTransactions.isEmpty()) {

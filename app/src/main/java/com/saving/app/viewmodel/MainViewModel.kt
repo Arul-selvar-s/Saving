@@ -67,6 +67,15 @@ class MainViewModel(
             list.filter { transaction -> matchesFilter(transaction, filter) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Overall (all-time, combined across every month) saving/expense/balance for the CURRENT filter/search result.
+    // Shown in the UI whenever a filter is active, e.g. filtering by category "Food" gives the
+    // all-time total for Food, in addition to the per-month breakdown already shown in MonthHeader.
+    val filteredTotals: StateFlow<FilteredTotals> = filteredTransactions.map { list ->
+        val saving = list.filter { it.type == TransactionType.SAVING.name }.sumOf { it.amount }
+        val expense = list.filter { it.type == TransactionType.EXPENSE.name }.sumOf { it.amount }
+        FilteredTotals(saving = saving, expense = expense, balance = saving - expense)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FilteredTotals())
+
     // Transactions grouped by month (most recent month first), each with its own saving/balance totals
     val groupedTransactions: StateFlow<List<MonthGroup>> = filteredTransactions.map { list ->
         list.groupBy { tx ->
@@ -239,6 +248,12 @@ class MainViewModel(
         }
     }
 }
+
+data class FilteredTotals(
+    val saving: Double = 0.0,
+    val expense: Double = 0.0,
+    val balance: Double = 0.0
+)
 
 class MainViewModelFactory(
     private val repository: SavingRepository,
