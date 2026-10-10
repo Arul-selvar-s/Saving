@@ -63,6 +63,7 @@ fun HomeScreen(
     val filteredTotals by viewModel.filteredTotals.collectAsState()
     val signedInAccount by viewModel.signedInAccount.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val isSwitchingAccount by viewModel.isSwitchingAccount.collectAsState()
     val syncError by viewModel.syncError.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
@@ -200,6 +201,7 @@ fun HomeScreen(
         AccountDialog(
             accountEmail = signedInAccount?.email,
             isSyncing = isSyncing,
+            isSwitchingAccount = isSwitchingAccount,
             errorMessage = syncError,
             onSignIn = {
                 onSignInClick()
@@ -210,6 +212,7 @@ fun HomeScreen(
                 showAccountDialog = false
             },
             onSyncNow = { viewModel.syncNow() },
+            onSwitchAccount = { viewModel.requestSwitchAccount() },
             onDismiss = { showAccountDialog = false }
         )
     }

@@ -145,6 +145,17 @@ class MainViewModel(
     private val _syncError = MutableStateFlow<String?>(null)
     val syncError: StateFlow<String?> = _syncError
 
+    // True only during the "back up current account before switching" step, so the UI
+    // can show a distinct message from a normal Sync Now.
+    private val _isSwitchingAccount = MutableStateFlow(false)
+    val isSwitchingAccount: StateFlow<Boolean> = _isSwitchingAccount
+
+    // Set to true once the pre-switch backup finishes successfully. MainActivity observes
+    // this, signs the current Google account out (which forces the account picker to show
+    // next time), clears it here, and launches the sign-in picker.
+    private val _switchAccountRequested = MutableStateFlow(false)
+    val switchAccountRequested: StateFlow<Boolean> = _switchAccountRequested
+
     // Non-null when Google needs the user to approve Drive access via a system dialog.
     // MainActivity observes this and launches the resolution intent.
     private val _authorizationNeeded = MutableStateFlow<IntentSender?>(null)
@@ -163,6 +174,38 @@ class MainViewModel(
             handleOutcome(syncManager.pullAndMerge())
             _isSyncing.value = false
         }
+    }
+
+    /**
+     * Called when the user taps "Switch Account". Per the primary sync rule, the currently
+     * signed-in account's data must be fully synced and uploaded to Drive BEFORE we switch
+     * away from it, so nothing entered on this account is ever lost. Only once that backup
+     * succeeds do we signal MainActivity (via switchAccountRequested) to sign out and show
+     * the Google account picker.
+     */
+    fun requestSwitchAccount() {
+        if (_signedInAccount.value == null) return
+        viewModelScope.launch {
+            _isSwitchingAccount.value = true
+            _isSyncing.value = true
+            val outcome = syncManager.pullAndMerge()
+            _isSyncing.value = false
+            when (outcome) {
+                is SyncOutcome.Success -> {
+                    _syncError.value = null
+                    _switchAccountRequested.value = true
+                }
+                is SyncOutcome.NeedsConsent -> _authorizationNeeded.value = outcome.intentSender
+                is SyncOutcome.Error -> _syncError.value =
+                    "Could not back up current data before switching: ${outcome.message}"
+            }
+            _isSwitchingAccount.value = false
+        }
+    }
+
+    /** Called by MainActivity once it has signed out of the old account and launched the picker. */
+    fun consumeSwitchAccountRequest() {
+        _switchAccountRequested.value = false
     }
 
     /** Called by MainActivity after the user resolves (or cancels) a Drive consent dialog. */

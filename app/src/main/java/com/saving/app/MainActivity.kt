@@ -73,6 +73,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Fires only after the current account's data has been successfully synced
+                // and uploaded to Drive (see MainViewModel.requestSwitchAccount). Signing out
+                // of the Google client forces the account picker to appear on the next
+                // sign-in intent, instead of silently re-selecting the same account.
+                val switchAccountRequested by viewModel.switchAccountRequested.collectAsState()
+                LaunchedEffect(switchAccountRequested) {
+                    if (switchAccountRequested) {
+                        viewModel.consumeSwitchAccountRequest()
+                        DriveAuth.getSignInClient(this@MainActivity).signOut()
+                        viewModel.setSignedInAccount(null)
+                        signInLauncher.launch(DriveAuth.getSignInClient(this@MainActivity).signInIntent)
+                    }
+                }
+
                 HomeScreen(
                     viewModel = viewModel,
                     onSignInClick = {
