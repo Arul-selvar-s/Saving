@@ -14,6 +14,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import com.saving.app.auth.DriveAuth
 import com.saving.app.data.db.AppDatabase
+import com.saving.app.data.goal.GoalStore
 import com.saving.app.data.repository.SavingRepository
 import com.saving.app.data.sync.SyncManager
 import com.saving.app.ui.screens.HomeScreen
@@ -52,10 +53,11 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getInstance(applicationContext)
         val repository = SavingRepository(database)
         val syncManager = SyncManager(applicationContext, repository)
+        val goalStore = GoalStore(applicationContext)
 
         viewModel = ViewModelProvider(
             this,
-            MainViewModelFactory(repository, syncManager)
+            MainViewModelFactory(repository, syncManager, goalStore)
         )[MainViewModel::class.java]
 
         // If already signed in from a previous session, this both restores the account

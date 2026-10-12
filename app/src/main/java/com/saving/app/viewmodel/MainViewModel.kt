@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.saving.app.auth.DriveAccessResult
+import com.saving.app.data.goal.GoalStore
 import com.saving.app.data.model.CategoryEntity
 import com.saving.app.data.model.FilterState
 import com.saving.app.data.model.MonthGroup
@@ -29,7 +30,8 @@ import java.util.UUID
 
 class MainViewModel(
     private val repository: SavingRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val goalStore: GoalStore
 ) : ViewModel() {
 
     val transactions: StateFlow<List<TransactionEntity>> =
@@ -62,9 +64,14 @@ class MainViewModel(
     private val _filterState = MutableStateFlow(FilterState())
     val filterState: StateFlow<FilterState> = _filterState
 
+    // Search text. Deliberately matched ONLY against `note` (same field the Category
+    // filter uses) — never against `message`, same rule as the filter itself.
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
     val filteredTransactions: StateFlow<List<TransactionEntity>> =
-        combine(transactions, _filterState) { list, filter ->
-            list.filter { transaction -> matchesFilter(transaction, filter) }
+        combine(transactions, _filterState, _searchQuery) { list, filter, query ->
+            list.filter { transaction -> matchesFilter(transaction, filter) && matchesSearch(transaction, query) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Overall (all-time, combined across every month) saving/expense/balance for the CURRENT filter/search result.
@@ -126,12 +133,27 @@ class MainViewModel(
         return true
     }
 
+    // Only `note` is searched (free-text for Saving, category name for Expense) — same
+    // field the Category filter matches against. `message` is intentionally excluded.
+    private fun matchesSearch(transaction: TransactionEntity, query: String): Boolean {
+        if (query.isBlank()) return true
+        return transaction.note.contains(query, ignoreCase = true)
+    }
+
     fun updateFilter(filter: FilterState) {
         _filterState.value = filter
     }
 
     fun clearFilter() {
         _filterState.value = FilterState()
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearch() {
+        _searchQuery.value = ""
     }
 
     // ---- Cloud sync state ----
@@ -291,6 +313,26 @@ class MainViewModel(
             pushIfSignedIn()
         }
     }
+
+    // ---- Savings Goal (local-only, per device — NOT synced via Drive) ----
+
+    private val _goalName = MutableStateFlow(goalStore.getGoalName())
+    val goalName: StateFlow<String?> = _goalName
+
+    private val _goalAmount = MutableStateFlow(goalStore.getGoalAmount())
+    val goalAmount: StateFlow<Double?> = _goalAmount
+
+    fun setSavingsGoal(name: String, amount: Double) {
+        goalStore.setGoal(name, amount)
+        _goalName.value = name
+        _goalAmount.value = amount
+    }
+
+    fun clearSavingsGoal() {
+        goalStore.clearGoal()
+        _goalName.value = null
+        _goalAmount.value = null
+    }
 }
 
 data class FilteredTotals(
@@ -301,10 +343,11 @@ data class FilteredTotals(
 
 class MainViewModelFactory(
     private val repository: SavingRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val goalStore: GoalStore
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return MainViewModel(repository, syncManager) as T
+        return MainViewModel(repository, syncManager, goalStore) as T
     }
 }
