@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,7 +54,8 @@ import com.saving.app.viewmodel.MainViewModel
 fun HomeScreen(
     viewModel: MainViewModel,
     onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit
+    onSignOutClick: () -> Unit,
+    onSwitchAccountClick: () -> Unit
 ) {
     val groupedTransactions by viewModel.groupedTransactions.collectAsState()
     val categories by viewModel.categories.collectAsState()
@@ -81,6 +83,15 @@ fun HomeScreen(
                     IconButton(onClick = { showAccountDialog = true }) {
                         BadgedBox(badge = { if (signedInAccount == null) Badge() }) {
                             Icon(Icons.Default.Cloud, contentDescription = "Cloud backup")
+                        }
+                    }
+                    // Dedicated, always-visible switch button (separate from the Cloud
+                    // Backup dialog) — only shown once signed in, since there's nothing to
+                    // switch away from otherwise. Backs up this account's data first, then
+                    // opens Google's account picker so a different login can be chosen.
+                    if (signedInAccount != null) {
+                        IconButton(onClick = onSwitchAccountClick, enabled = !isSwitchingAccount) {
+                            Icon(Icons.Default.SwitchAccount, contentDescription = "Switch account")
                         }
                     }
                     IconButton(onClick = { showManageCategories = true }) {

@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import com.saving.app.auth.DriveAuth
@@ -19,6 +20,7 @@ import com.saving.app.ui.screens.HomeScreen
 import com.saving.app.ui.theme.SavingTheme
 import com.saving.app.viewmodel.MainViewModel
 import com.saving.app.viewmodel.MainViewModelFactory
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -81,7 +83,9 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(switchAccountRequested) {
                     if (switchAccountRequested) {
                         viewModel.consumeSwitchAccountRequest()
-                        DriveAuth.getSignInClient(this@MainActivity).signOut()
+                        // Must be awaited — launching the picker before sign-out actually
+                        // finishes is what let Google silently reuse the cached account.
+                        DriveAuth.signOut(this@MainActivity)
                         viewModel.setSignedInAccount(null)
                         signInLauncher.launch(DriveAuth.getSignInClient(this@MainActivity).signInIntent)
                     }
@@ -93,9 +97,15 @@ class MainActivity : ComponentActivity() {
                         signInLauncher.launch(DriveAuth.getSignInClient(this).signInIntent)
                     },
                     onSignOutClick = {
-                        DriveAuth.getSignInClient(this).signOut()
-                        viewModel.setSignedInAccount(null)
-                    }
+                        lifecycleScope.launch {
+                            DriveAuth.signOut(this@MainActivity)
+                            viewModel.setSignedInAccount(null)
+                        }
+                    },
+                    // Dedicated top-bar button: backs up the current account's data to
+                    // Drive first, then (via switchAccountRequested above) signs out and
+                    // shows Google's account picker so a different login can be chosen.
+                    onSwitchAccountClick = { viewModel.requestSwitchAccount() }
                 )
             }
         }

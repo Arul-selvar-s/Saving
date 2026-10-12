@@ -42,6 +42,22 @@ object DriveAuth {
     fun getLastSignedInAccount(context: Context): GoogleSignInAccount? =
         GoogleSignIn.getLastSignedInAccount(context)
 
+    /**
+     * Signs out of the Google client and WAITS for it to actually finish before returning.
+     * signOut() on its own only returns a Task that completes asynchronously — launching the
+     * sign-in picker immediately after calling it (without waiting) let Google silently
+     * re-select the still-cached account instead of showing the chooser, which is why
+     * "Switch Account" looked like it did nothing. Must be called from a coroutine.
+     */
+    suspend fun signOut(context: Context) = withContext(Dispatchers.IO) {
+        try {
+            Tasks.await(getSignInClient(context).signOut())
+        } catch (_: Exception) {
+            // Even if sign-out itself reports an error, continue — we still want to show
+            // the account picker next, which is the user's actual goal.
+        }
+    }
+
     suspend fun requestDriveAccess(context: Context): DriveAccessResult = withContext(Dispatchers.IO) {
         try {
             val request = AuthorizationRequest.builder()
