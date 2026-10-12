@@ -46,7 +46,7 @@ import java.util.Locale
 fun AddTransactionSheet(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onSave: (TransactionType, Double, String, Long) -> Unit,
+    onSave: (TransactionType, Double, String, Long, String) -> Unit,
     onAddCategory: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -55,6 +55,7 @@ fun AddTransactionSheet(
     var type by remember { mutableStateOf(TransactionType.EXPENSE) }
     var amountText by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var dateTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
@@ -165,6 +166,17 @@ fun AddTransactionSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            Spacer(Modifier.height(16.dp))
+
+            // Message: a second, longer optional note available for BOTH Saving and
+            // Expense. Purely informational — not used by filters, search, or the
+            // category dropdown (those only ever look at Note/Category above).
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                label = { Text("Message (optional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(24.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -175,7 +187,7 @@ fun AddTransactionSheet(
                     val finalNote = if (type == TransactionType.EXPENSE) selectedCategory else note
                     val isValid = amount > 0.0 && (type == TransactionType.SAVING || finalNote.isNotBlank())
                     if (isValid) {
-                        onSave(type, amount, finalNote, dateTimeMillis)
+                        onSave(type, amount, finalNote, dateTimeMillis, message)
                     }
                 }) { Text("Save") }
             }

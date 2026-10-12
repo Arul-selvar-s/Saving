@@ -26,6 +26,7 @@ object BackupSerializer {
                     put("type", tx.type)
                     put("amount", tx.amount)
                     put("note", tx.note)
+                    put("message", tx.message)
                     put("dateTimeMillis", tx.dateTimeMillis)
                     put("updatedAtMillis", tx.updatedAtMillis)
                 }
@@ -59,6 +60,7 @@ object BackupSerializer {
                 type = obj.getString("type"),
                 amount = obj.getDouble("amount"),
                 note = obj.getString("note"),
+                message = obj.optString("message", ""), // old backups won't have this field
                 dateTimeMillis = obj.getLong("dateTimeMillis"),
                 updatedAtMillis = obj.optLong("updatedAtMillis", 0L),
                 cloudId = obj.optString("cloudId").ifBlank { null }

@@ -111,6 +111,7 @@ class SyncManager(
                             type = remoteTx.type,
                             amount = remoteTx.amount,
                             note = remoteTx.note,
+                            message = remoteTx.message,
                             dateTimeMillis = remoteTx.dateTimeMillis,
                             updatedAtMillis = remoteTx.updatedAtMillis
                         )

@@ -64,6 +64,7 @@ fun EditTransactionSheet(
         )
     }
     var note by remember { mutableStateOf(if (type == TransactionType.SAVING) transaction.note else "") }
+    var message by remember { mutableStateOf(transaction.message) }
     var selectedCategory by remember {
         mutableStateOf(if (type == TransactionType.EXPENSE) transaction.note else (categories.firstOrNull()?.name ?: ""))
     }
@@ -173,6 +174,17 @@ fun EditTransactionSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            Spacer(Modifier.height(16.dp))
+
+            // Message: a second, longer optional note available for BOTH Saving and
+            // Expense. Purely informational — not used by filters, search, or the
+            // category dropdown (those only ever look at Note/Category above).
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                label = { Text("Message (optional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(24.dp))
 
             Row(
@@ -195,6 +207,7 @@ fun EditTransactionSheet(
                                     type = type.name,
                                     amount = amount,
                                     note = finalNote,
+                                    message = message,
                                     dateTimeMillis = dateTimeMillis,
                                     updatedAtMillis = System.currentTimeMillis()
                                 )

@@ -170,8 +170,8 @@ fun HomeScreen(
         AddTransactionSheet(
             categories = categories,
             onDismiss = { showAddSheet = false },
-            onSave = { type, amount, note, dateTimeMillis ->
-                viewModel.addTransaction(type, amount, note, dateTimeMillis)
+            onSave = { type, amount, note, dateTimeMillis, message ->
+                viewModel.addTransaction(type, amount, note, dateTimeMillis, message)
                 showAddSheet = false
             },
             onAddCategory = { name -> viewModel.addCategory(name) }

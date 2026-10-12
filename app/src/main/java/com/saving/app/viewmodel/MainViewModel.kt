@@ -236,7 +236,7 @@ class MainViewModel(
 
     // ---- Transactions / Categories (now sync-aware) ----
 
-    fun addTransaction(type: TransactionType, amount: Double, note: String, dateTimeMillis: Long) {
+    fun addTransaction(type: TransactionType, amount: Double, note: String, dateTimeMillis: Long, message: String = "") {
         viewModelScope.launch {
             repository.addTransaction(
                 TransactionEntity(
@@ -244,7 +244,8 @@ class MainViewModel(
                     amount = amount,
                     note = note,
                     dateTimeMillis = dateTimeMillis,
-                    cloudId = UUID.randomUUID().toString()
+                    cloudId = UUID.randomUUID().toString(),
+                    message = message
                 )
             )
             pushIfSignedIn()
